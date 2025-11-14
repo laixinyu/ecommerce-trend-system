@@ -28,11 +28,8 @@ export default function LoginPage() {
       if (error) {
         setError(error.message);
       } else {
-        // 登录成功，等待认证状态更新后跳转
-        setTimeout(() => {
-          router.push(redirectTo);
-          router.refresh(); // 刷新路由以更新认证状态
-        }, 300);
+        // 登录成功，使用硬跳转确保认证状态刷新
+        window.location.href = redirectTo;
       }
     } catch {
       setError('登录失败，请重试');

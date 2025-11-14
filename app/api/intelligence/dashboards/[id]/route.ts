@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -16,7 +17,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('dashboards')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .or(`user_id.eq.${user.id},is_template.eq.true`)
       .single();
 
@@ -30,7 +31,7 @@ export async function GET(
     }
 
     return NextResponse.json({ dashboard: data });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -41,10 +42,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -55,26 +57,28 @@ export async function PUT(
     const { name, description, layout, widgets, is_default } = body;
 
     // If setting as default, unset other defaults
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabaseAny = supabase as any;
     if (is_default) {
-      await supabase
+      await supabaseAny
         .from('dashboards')
         .update({ is_default: false })
         .eq('user_id', user.id)
         .eq('is_default', true)
-        .neq('id', params.id);
+        .neq('id', id);
     }
 
-    const updateData: any = { updated_at: new Date().toISOString() };
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (layout !== undefined) updateData.layout = layout;
     if (widgets !== undefined) updateData.widgets = widgets;
     if (is_default !== undefined) updateData.is_default = is_default;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAny
       .from('dashboards')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single();
@@ -89,7 +93,7 @@ export async function PUT(
     }
 
     return NextResponse.json({ dashboard: data });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -100,10 +104,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -113,7 +118,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('dashboards')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (error) {
@@ -122,7 +127,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

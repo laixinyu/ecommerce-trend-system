@@ -97,6 +97,9 @@ npm run update:categories              # 应用 Amazon 类目
 npm run update:categories:aliexpress   # 应用 AliExpress 类目
 npm run verify:categories              # 验证类目数据
 
+# 数据库迁移
+npm run migration:011                  # 修复批量删除权限 🆕
+
 # 代码质量
 npm run lint             # 检查代码
 npm run type-check       # 类型检查

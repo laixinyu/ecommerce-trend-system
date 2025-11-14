@@ -4,10 +4,11 @@ import { DataExporter } from '@/lib/intelligence/data-exporter';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -15,14 +16,14 @@ export async function GET(
     }
 
     const exporter = new DataExporter(supabase, user.id);
-    const job = await exporter.getExportJob(params.id);
+    const job = await exporter.getExportJob(id);
 
     if (!job) {
       return NextResponse.json({ error: 'Export job not found' }, { status: 404 });
     }
 
     return NextResponse.json({ job });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching export job:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

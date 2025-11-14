@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
@@ -31,7 +32,7 @@ export async function POST(
     const { data: versions, error: versionError } = await supabase
       .from('content_asset_versions')
       .select('*')
-      .eq('asset_id', params.id)
+      .eq('asset_id', id)
       .eq('version_number', version_number);
 
     if (versionError || !versions || versions.length === 0) {
@@ -41,14 +42,19 @@ export async function POST(
       );
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const version = versions[0] as any;
+    const version = versions[0] as {
+      title: string;
+      description: string;
+      tags: string[];
+      url: string;
+      storage_path: string;
+    };
 
     // Verify asset ownership
     const { data: assets, error: assetError } = await supabase
       .from('content_assets')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (assetError || !assets || assets.length === 0) {
@@ -59,18 +65,21 @@ export async function POST(
     }
 
     // Restore the version
+    const updateData = {
+      title: version.title,
+      description: version.description,
+      tags: version.tags,
+      url: version.url,
+      storage_path: version.storage_path,
+      updated_at: new Date().toISOString(),
+    };
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedAssets, error: updateError } = await (supabase
+    const supabaseAny = supabase as any;
+    const { data: updatedAssets, error: updateError } = await supabaseAny
       .from('content_assets')
-      .update({
-        title: version.title,
-        description: version.description,
-        tags: version.tags,
-        url: version.url,
-        storage_path: version.storage_path,
-        updated_at: new Date().toISOString(),
-      }) as any)
-      .eq('id', params.id)
+      .update(updateData)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select();
 

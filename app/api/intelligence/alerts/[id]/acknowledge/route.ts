@@ -4,10 +4,11 @@ import { AlertMonitor } from '@/lib/intelligence/alert-monitor';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -15,13 +16,13 @@ export async function POST(
     }
 
     const monitor = new AlertMonitor(supabase, user.id);
-    await monitor.acknowledgeAlert(params.id);
+    await monitor.acknowledgeAlert(id);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error acknowledging alert:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }

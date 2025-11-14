@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
@@ -21,7 +22,7 @@ export async function GET(
     const { data: asset, error: assetError } = await supabase
       .from('content_assets')
       .select('id')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -36,7 +37,7 @@ export async function GET(
     const { data: versions, error } = await supabase
       .from('content_asset_versions')
       .select('*')
-      .eq('asset_id', params.id)
+      .eq('asset_id', id)
       .order('version_number', { ascending: false });
 
     if (error) throw error;

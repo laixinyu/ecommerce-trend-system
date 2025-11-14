@@ -10,10 +10,11 @@ import { Customer } from '@/types/crm';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id: customerId } = await params;
 
     // 验证用户身份
     const {
@@ -24,8 +25,6 @@ export async function GET(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const customerId = params.id;
 
     // 获取客户数据
     const { data: customer, error: customerError } = await supabase
@@ -49,10 +48,10 @@ export async function GET(
       customer,
       profile,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get customer profile error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get customer profile' },
+      { error: error instanceof Error ? error.message : 'Failed to get customer profile' },
       { status: 500 }
     );
   }

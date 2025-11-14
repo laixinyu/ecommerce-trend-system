@@ -28,6 +28,8 @@
     "update:categories:aliexpress": "tsx scripts/apply-aliexpress-categories.ts",
     "verify:categories": "tsx scripts/verify-categories.ts",
     "create:test-user": "tsx scripts/create-test-user.ts",
+    "test:bulk-delete": "tsx scripts/test-bulk-delete.ts",
+    "migration:011": "tsx scripts/apply-migration-011.ts",
     "verify:test-users": "tsx scripts/verify-test-users.ts"
   },
   "dependencies": {

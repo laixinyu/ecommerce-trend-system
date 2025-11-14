@@ -6,52 +6,76 @@ export async function DELETE(request: NextRequest) {
     const { action, threshold } = await request.json();
     const supabase = createSupabaseClient();
 
+    console.log('批量删除请求:', { action, threshold });
+
     let deletedCount = 0;
 
-    if (action === 'delete_not_recommended') {
-      // 删除不推荐的商品（推荐分数低于阈值）
-      const scoreThreshold = threshold || 50; // 默认阈值为 50
+    if (action === 'delete_low_score') {
+      // 删除低分商品（推荐分数低于阈值）
+      const scoreThreshold = threshold || 30; // 默认阈值为 30
 
-      // 先查询要删除的商品数量
-      const countQuery = supabase
+      // 先查询要删除的商品 ID
+      const { data: productsToDelete, error: queryError } = await supabase
         .from('products')
-        .select('*', { count: 'exact', head: true })
+        .select('id, recommendation_score')
         .lt('recommendation_score', scoreThreshold);
 
-      const { count } = await countQuery;
-      deletedCount = count || 0;
+      if (queryError) {
+        console.error('查询商品失败:', queryError);
+        throw queryError;
+      }
 
-      // 执行删除
-      const deleteQuery = supabase
-        .from('products')
-        .delete()
-        .lt('recommendation_score', scoreThreshold);
+      deletedCount = productsToDelete?.length || 0;
+      console.log(`找到 ${deletedCount} 个推荐分数 < ${scoreThreshold} 的商品`);
 
-      const { error } = await deleteQuery;
+      // 如果有商品需要删除，执行删除
+      if (deletedCount > 0) {
+        const { error: deleteError, count } = await supabase
+          .from('products')
+          .delete({ count: 'exact' })
+          .lt('recommendation_score', scoreThreshold);
 
-      if (error) {
-        throw error;
+        if (deleteError) {
+          console.error('删除商品失败:', deleteError);
+          throw deleteError;
+        }
+
+        console.log(`成功删除 ${count || deletedCount} 个商品`);
       }
     } else if (action === 'delete_all') {
       // 清空所有商品
-      // 先查询总数
-      const countQuery = supabase
+      // 先查询所有商品 ID
+      const { data: allProducts, error: queryError } = await supabase
         .from('products')
-        .select('*', { count: 'exact', head: true });
+        .select('id');
 
-      const { count } = await countQuery;
-      deletedCount = count || 0;
+      if (queryError) {
+        console.error('查询所有商品失败:', queryError);
+        throw queryError;
+      }
 
-      // 执行删除所有商品
-      const deleteQuery = supabase
-        .from('products')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // 删除所有记录
+      deletedCount = allProducts?.length || 0;
+      console.log(`找到 ${deletedCount} 个商品，准备删除`);
 
-      const { error } = await deleteQuery;
+      // 如果有商品，执行删除
+      if (deletedCount > 0 && allProducts) {
+        // 提取所有商品 ID
+        const productIds = allProducts.map((p: { id: string }) => p.id);
+        console.log(`商品 ID 列表:`, productIds.slice(0, 5), '...');
 
-      if (error) {
-        throw error;
+        // 使用 in 操作符删除所有商品
+        const { error: deleteError, count } = await supabase
+          .from('products')
+          .delete({ count: 'exact' })
+          .in('id', productIds);
+
+        if (deleteError) {
+          console.error('删除所有商品失败:', deleteError);
+          throw deleteError;
+        }
+
+        console.log(`成功删除 ${count || deletedCount} 个商品`);
+        deletedCount = count || deletedCount;
       }
     } else {
       return NextResponse.json(
@@ -71,8 +95,8 @@ export async function DELETE(request: NextRequest) {
       data: {
         deletedCount,
         message:
-          action === 'delete_not_recommended'
-            ? `已删除 ${deletedCount} 个不推荐的商品`
+          action === 'delete_low_score'
+            ? `已删除 ${deletedCount} 个低分商品（推荐分数 < ${threshold || 30}）`
             : `已清空所有商品，共删除 ${deletedCount} 个商品`,
       },
     });

@@ -20,7 +20,8 @@ export default function ProductsPage() {
   const [showNewDataBanner, setShowNewDataBanner] = useState(false);
   const [newProductsCount, setNewProductsCount] = useState(0);
   const [deleting, setDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<'not_recommended' | 'all' | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<'low_score' | 'all' | null>(null);
+  const [scoreThreshold, setScoreThreshold] = useState(30); // 默认删除低于30分的商品
   const { toast } = useToast();
 
   // 筛选状态
@@ -81,7 +82,7 @@ export default function ProductsPage() {
     checkNow(); // 同时检查同步状态
   };
 
-  const handleBulkDelete = async (action: 'delete_not_recommended' | 'delete_all') => {
+  const handleBulkDelete = async (action: 'low_score' | 'delete_all') => {
     setDeleting(true);
     try {
       const response = await fetch('/api/trends/products/bulk-delete', {
@@ -90,8 +91,8 @@ export default function ProductsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action,
-          threshold: 50, // 推荐分数阈值
+          action: action === 'low_score' ? 'delete_low_score' : 'delete_all',
+          threshold: scoreThreshold, // 使用用户设置的阈值
         }),
       });
 
@@ -203,11 +204,11 @@ export default function ProductsPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setShowDeleteConfirm('not_recommended')}
+            onClick={() => setShowDeleteConfirm('low_score')}
             disabled={loading || deleting}
             className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
           >
-            🗑️ 删除不推荐
+            🗑️ 删除低分商品
           </Button>
           <Button
             size="sm"
@@ -349,22 +350,49 @@ export default function ProductsPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {showDeleteConfirm === 'not_recommended' ? '确认删除不推荐商品' : '确认清空商品列表'}
+                {showDeleteConfirm === 'low_score' ? '确认删除低分商品' : '确认清空商品列表'}
               </h3>
-              <p className="text-sm text-gray-600">
-                {showDeleteConfirm === 'not_recommended'
-                  ? '此操作将删除所有推荐分数低于 50 的商品，删除后无法恢复。'
+              <p className="text-sm text-gray-600 mb-3">
+                {showDeleteConfirm === 'low_score'
+                  ? `此操作将删除所有推荐分数低于 ${scoreThreshold} 的商品，删除后无法恢复。`
                   : '此操作将清空所有商品数据，删除后无法恢复。'}
               </p>
-              {showDeleteConfirm === 'not_recommended' && (
-                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                  <p className="text-xs text-orange-800">
-                    💡 提示：推荐分数低于 50 的商品通常表示市场潜力较低或竞争过于激烈
-                  </p>
-                </div>
+              
+              {showDeleteConfirm === 'low_score' && (
+                <>
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      推荐分数阈值：{scoreThreshold} 分
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="70"
+                      step="5"
+                      value={scoreThreshold}
+                      onChange={(e) => setScoreThreshold(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>10 (极低)</span>
+                      <span>30 (低)</span>
+                      <span>50 (中)</span>
+                      <span>70 (高)</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                    <p className="text-xs text-orange-800">
+                      💡 建议：
+                      <br />• 10-30分：极低质量商品（市场验证不足）
+                      <br />• 30-50分：低潜力商品（竞争激烈或利润低）
+                      <br />• 50-70分：中等商品（谨慎考虑）
+                    </p>
+                  </div>
+                </>
               )}
+              
               {showDeleteConfirm === 'all' && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                   <p className="text-xs text-red-800">
                     ⚠️ 警告：此操作将删除所有商品数据，包括趋势历史记录
                   </p>
@@ -381,7 +409,7 @@ export default function ProductsPage() {
               </Button>
               <Button
                 variant="primary"
-                onClick={() => handleBulkDelete(showDeleteConfirm === 'not_recommended' ? 'delete_not_recommended' : 'delete_all')}
+                onClick={() => handleBulkDelete(showDeleteConfirm === 'all' ? 'delete_all' : 'low_score')}
                 disabled={deleting}
                 className={
                   showDeleteConfirm === 'all'

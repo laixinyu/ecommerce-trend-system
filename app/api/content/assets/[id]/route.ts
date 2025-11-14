@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -21,7 +22,7 @@ export async function GET(
     const { data: asset, error } = await supabase
       .from('content_assets')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -33,10 +34,10 @@ export async function GET(
     }
 
     return NextResponse.json({ asset });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get content asset error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get content asset' },
+      { error: error instanceof Error ? error.message : 'Failed to get content asset' },
       { status: 500 }
     );
   }
@@ -44,10 +45,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -62,7 +64,7 @@ export async function PATCH(
     const body = await request.json();
     const { title, description, tags, platform } = body;
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
@@ -71,10 +73,12 @@ export async function PATCH(
     if (tags !== undefined) updates.tags = tags;
     if (platform !== undefined) updates.platform = platform;
 
-    const { data: asset, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabaseAny = supabase as any;
+    const { data: asset, error } = await supabaseAny
       .from('content_assets')
       .update(updates)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single();
@@ -90,10 +94,10 @@ export async function PATCH(
       success: true,
       asset,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update content asset error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to update content asset' },
+      { error: error instanceof Error ? error.message : 'Failed to update content asset' },
       { status: 500 }
     );
   }
@@ -101,10 +105,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -120,7 +125,7 @@ export async function DELETE(
     const { data: asset, error: fetchError } = await supabase
       .from('content_assets')
       .select('storage_path')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -132,17 +137,18 @@ export async function DELETE(
     }
 
     // Delete from storage if path exists
-    if (asset.storage_path) {
+    const assetData = asset as { storage_path?: string };
+    if (assetData.storage_path) {
       await supabase.storage
         .from('content-assets')
-        .remove([asset.storage_path]);
+        .remove([assetData.storage_path]);
     }
 
     // Delete from database
     const { error: deleteError } = await supabase
       .from('content_assets')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (deleteError) {
@@ -156,10 +162,10 @@ export async function DELETE(
       success: true,
       message: 'Content asset deleted',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Delete content asset error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to delete content asset' },
+      { error: error instanceof Error ? error.message : 'Failed to delete content asset' },
       { status: 500 }
     );
   }

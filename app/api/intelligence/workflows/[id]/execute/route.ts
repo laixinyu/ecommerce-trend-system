@@ -4,10 +4,11 @@ import { WorkflowEngine } from '@/lib/intelligence/workflow-engine';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -18,13 +19,13 @@ export async function POST(
     const context = body.context || {};
 
     const engine = new WorkflowEngine(supabase, user.id);
-    const execution = await engine.executeWorkflow(params.id, context);
+    const execution = await engine.executeWorkflow(id, context);
 
     return NextResponse.json({ execution });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error executing workflow:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }

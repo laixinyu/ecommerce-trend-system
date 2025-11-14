@@ -9,10 +9,11 @@ import { UpdateAutomationRuleInput } from '@/types/automation';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
 
     // 验证用户身份
     const {
@@ -27,7 +28,7 @@ export async function GET(
     const { data: rule, error } = await supabase
       .from('automation_rules')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
@@ -36,10 +37,10 @@ export async function GET(
     }
 
     return NextResponse.json({ rule });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get automation rule error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get automation rule' },
+      { error: error instanceof Error ? error.message : 'Failed to get automation rule' },
       { status: 500 }
     );
   }
@@ -51,10 +52,11 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
 
     // 验证用户身份
     const {
@@ -69,13 +71,15 @@ export async function PATCH(
     const body: UpdateAutomationRuleInput = await request.json();
 
     // 更新规则
-    const { data: rule, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabaseAny = supabase as any;
+    const { data: rule, error } = await supabaseAny
       .from('automation_rules')
       .update({
         ...body,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single();
@@ -85,10 +89,10 @@ export async function PATCH(
     }
 
     return NextResponse.json({ rule });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update automation rule error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to update automation rule' },
+      { error: error instanceof Error ? error.message : 'Failed to update automation rule' },
       { status: 500 }
     );
   }
@@ -100,10 +104,11 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
+    const { id } = await params;
 
     // 验证用户身份
     const {
@@ -118,7 +123,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('automation_rules')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id);
 
     if (error) {
@@ -126,10 +131,10 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: 'Rule deleted successfully' });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Delete automation rule error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to delete automation rule' },
+      { error: error instanceof Error ? error.message : 'Failed to delete automation rule' },
       { status: 500 }
     );
   }
